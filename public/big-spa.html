@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>🧖‍♀️ Big Screen – Spa</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:Arial; }
+    header {
+      height:80px;
+      background:linear-gradient(90deg,#8e24aa,#ce93d8);
+      display:flex; justify-content:space-between;
+      align-items:center; padding:0 40px;
+    }
+    header h1 { margin:0; font-size:28px; }
+    header .count { font-size:22px; }
+
+    #center { height:calc(100vh - 140px); display:flex; justify-content:center; align-items:center; }
+    #box { display:none; text-align:center; animation:zoom 0.5s; }
+    #box.show { display:block; }
+
+    img {
+      max-height:70vh;
+      border-radius:20px;
+      border:6px solid #ce93d8;
+      box-shadow:0 0 40px #ce93d8;
+    }
+
+    #name { font-size:36px; margin-top:20px; }
+    #phone { font-size:24px; opacity:0.8; }
+
+    footer {
+      height:60px; background:#111; color:#ce93d8;
+      display:flex; align-items:center; overflow:hidden;
+    }
+    footer span {
+      white-space:nowrap; padding-left:100%;
+      animation:marquee 15s linear infinite;
+    }
+
+    @keyframes zoom { from{transform:scale(.7);opacity:0} to{transform:scale(1);opacity:1} }
+    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-100%)} }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>🧖‍♀️ SPA EXPERIENCE</h1>
+  <div class="count">Lượt Spa: <span id="count">0</span></div>
+</header>
+
+<div id="center">
+  <div id="box">
+    <img id="photo">
+    <div id="name"></div>
+    <div id="phone"></div>
+  </div>
+</div>
+
+<footer>
+  <span>✨ Trải nghiệm nhận diện khuôn mặt cùng Hotel VLUTE ✨</span>
+</footer>
+
+<script>
+const socket = io();
+let count = 0;
+
+socket.on("action_screen", data => {
+  if (data.action !== "spa") return;
+  count++;
+  document.getElementById("count").textContent = count;
+  photo.src = data.image;
+  name.textContent = data.name;
+  phone.textContent = "***" + data.phone.slice(-3);
+  box.classList.add("show");
+  setTimeout(()=>box.classList.remove("show"),4000);
+});
+</script>
+
+</body>
+</html>

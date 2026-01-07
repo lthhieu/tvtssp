@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>💪 Big Screen – GYM</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      color: #fff;
+      background: url("/bg/gym-bg.jpg") no-repeat center center fixed;
+      background-size: cover;
+      overflow: hidden;
+    }
+
+    header {
+      height: 80px;
+      background: rgba(0, 0, 30, 0.65);
+      display: flex;
+      color: #00e5ff;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      backdrop-filter: blur(6px);
+    }
+
+    header h1 {
+      font-size: 30px;
+      margin: 0;
+    }
+
+    .count {
+      display: flex;
+      align-items: center;
+      font-size: 22px;
+      gap: 16px;
+    }
+
+    .download {
+      cursor: pointer;
+      font-size: 26px;
+      transition: transform 0.2s;
+    }
+
+    .download:hover {
+      transform: scale(1.2);
+    }
+
+    #main {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      height: calc(100vh - 140px);
+      padding: 30px;
+      gap: 30px;
+    }
+
+    .panel {
+      background: rgba(0, 0, 40, 0.55);
+      border-radius: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 30px rgba(0, 180, 255, 0.35);
+    }
+
+    /* VIDEO */
+    #video-frame {
+      width: 100%;
+      height: 100%;
+      border-radius: 24px;
+      border: 5px solid #00e5ff;
+      overflow: hidden;
+      box-shadow: 0 0 25px #00e5ff;
+    }
+
+    #video-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* PHOTO */
+    #box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #photo {
+      max-height: 70%;
+      max-width: 80%;
+      object-fit: contain;
+      border-radius: 24px;
+      border: 6px solid #00e5ff;
+      box-shadow: 0 0 40px #00e5ff;
+    }
+
+    #name {
+      margin-top: 18px;
+      font-size: 34px;
+      font-weight: bold;
+    }
+
+    #phone {
+      font-size: 22px;
+      opacity: 0.85;
+      margin-top: 6px;
+    }
+
+    footer {
+      height: 70px;
+      background: rgba(0, 0, 30, 0.7);
+      display: flex;
+      color: white;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    footer span {
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: marquee 25s linear infinite;
+      font-size: 28px;
+      color: #00e5ff;
+    }
+
+    @keyframes marquee {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-100%);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>💪 TRẢI NGHIỆM CHECK-IN GYM BẰNG CÔNG NGHỆ NHẬN DIỆN KHUÔN MẶT HÔM NAY </h1>
+    <div class="count">
+      Lượt GYM: <span id="count">0</span>
+      <span class="download" title="Tải danh sách GYM" onclick="downloadGym()">⬇️</span>
+    </div>
+  </header>
+
+  <div id="main">
+
+    <div class="panel">
+      <div id="video-frame">
+        <video id="video-bg" autoplay muted playsinline></video>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div id="box">
+        <img id="photo" src="" />
+        <div id="name"></div>
+        <div id="phone"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>💪 Please remember to take care of your health every day 💪 Nhớ chăm sóc sức khỏe cho mình mỗi ngày bạn nhé!
+      💪</span>
+  </footer>
+
+  <script>
+    const socket = io("https://192.168.3.109:3000");
+    let gymCount = 0;
+
+    const video = document.getElementById("video-bg");
+    const playlist = [
+      "/video/gym1.mp4",
+      "/video/gym2.mp4",
+      "/video/gym4.mp4",
+      "/video/gym5.mp4"
+    ];
+    let index = 0;
+
+    function playNext() {
+      video.src = playlist[index];
+      video.play();
+      index = (index + 1) % playlist.length;
+    }
+
+    video.addEventListener("ended", playNext);
+    playNext();
+
+    socket.on("connect", () => {
+      console.log("📺 Big GYM connected:", socket.id);
+    });
+
+    socket.on("action_screen", data => {
+      if (data.action !== "gym") return;
+
+      gymCount++;
+      document.getElementById("count").textContent = gymCount;
+
+      document.getElementById("photo").src = data.image;
+      document.getElementById("name").textContent = data.name || "Khách GYM";
+      document.getElementById("phone").textContent = data.phone
+        ? "SĐT: ***" + data.phone.slice(-3)
+        : "";
+    });
+
+    function downloadGym() {
+      window.open("/api/export-gym", "_blank");
+    }
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+/* ===== BASE ===== */
+* { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+
+body {
+  margin: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #111, #222);
+  overflow: hidden;
+}
+
+header {
+  height: 80px;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  backdrop-filter: blur(6px);
+}
+
+header h1 { font-size: 30px; margin: 0; }
+
+.count {
+  display: flex;
+  align-items: center;
+  font-size: 22px;
+  gap: 16px;
+}
+
+.download {
+  cursor: pointer;
+  font-size: 26px;
+}
+
+#main {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  height: calc(100vh - 140px);
+  padding: 30px;
+  gap: 30px;
+}
+
+.panel {
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 30px rgba(0,255,0,0.2);
+}
+
+#video-frame, #photo {
+  border-radius: 24px;
+  border: 5px solid currentColor;
+  box-shadow: 0 0 25px currentColor;
+}
+
+#video-frame {
+  width: 100%;
+  height: 90%;
+  overflow: hidden;
+}
+
+#video-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#photo {
+  max-height: 70%;
+  max-width: 80%;
+  object-fit: contain;
+}
+
+#name {
+  margin-top: 18px;
+  font-size: 34px;
+  font-weight: bold;
+}
+
+#phone {
+  font-size: 22px;
+  opacity: 0.85;
+  margin-top: 6px;
+}
+
+footer {
+  height: 60px;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+footer span {
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: marquee 15s linear infinite;
+  font-size: 22px;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+/* ===== ZONE THEMES ===== */
+
+body[data-zone="buffet"] {
+  background: linear-gradient(135deg, #053, #0a7);
+  color: #00ff99;
+}
+
+body[data-zone="gym"] {
+  background: linear-gradient(135deg, #300, #800);
+  color: #ff4444;
+}
+
+body[data-zone="spa"] {
+  background: linear-gradient(135deg, #204, #509);
+  color: #c77dff;
+}
+
+body[data-zone="zoo"] {
+  background: linear-gradient(135deg, #320, #a60);
+  color: #ffaa00;
+}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>📸 Check-in AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/face-api.min.js"></script>
+
+  <style>
+    body { background:#000; color:#fff; font-family:Arial; text-align:center; margin:0; }
+    input, button { padding:10px; margin:6px; border-radius:8px; border:none; font-size:16px; }
+    button { background:#0a7; color:#fff; }
+    #videoBox { width:90%; max-width:360px; margin:10px auto; border:4px solid #0f0; border-radius:16px; box-shadow:0 0 20px #0f0; }
+    video, canvas { width:100%; border-radius:12px; }
+    #status { margin-top:8px; font-size:14px; color:#0f0; }
+  </style>
+</head>
+
+<body>
+
+<h1>📸 CHECK-IN AI</h1>
+
+<input id="name" placeholder="Họ tên" />
+<input id="phone" placeholder="SĐT" />
+<br>
+<button id="startBtn">🎥 Bật camera</button>
+
+<div id="videoBox">
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+</div>
+
+<button id="checkinBtn" disabled>✅ Check-in</button>
+<div id="status">Chưa bật camera</div>
+
+<script>
+const socket = io();
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const cameraSelect = document.getElementById("cameraSelect");
+
+let stream = null;
+let currentDeviceId = null;
+
+async function loadModels() {
+  await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+}
+loadModels();
+
+// Liệt kê camera
+async function loadCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameras = devices.filter(d => d.kind === "videoinput");
+
+  cameraSelect.innerHTML = "";
+  cameras.forEach((cam, index) => {
+    const opt = document.createElement("option");
+    opt.value = cam.deviceId;
+    opt.text = cam.label || `Camera ${index + 1}`;
+    cameraSelect.appendChild(opt);
+  });
+
+  if (cameras.length > 0) {
+    currentDeviceId = cameras[0].deviceId;
+  }
+}
+
+// Bật camera theo deviceId
+<br>
+<select id="cameraSelect"></select>
+<br>
+
+async function startCamera(deviceId) {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+  }
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { deviceId: { exact: deviceId } }
+  });
+
+  video.srcObject = stream;
+  document.getElementById("checkinBtn").disabled = false;
+  document.getElementById("status").textContent = "📸 Đưa mặt vào khung và bấm Check-in";
+}
+
+// Khi bấm nút bật camera
+document.getElementById("startBtn").onclick = async () => {
+  await loadCameras();
+  if (currentDeviceId) {
+    await startCamera(currentDeviceId);
+  }
+};
+
+// Khi đổi camera
+cameraSelect.onchange = async () => {
+  currentDeviceId = cameraSelect.value;
+  await startCamera(currentDeviceId);
+};
+
+document.getElementById("checkinBtn").onclick = async () => {
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+
+  if (!name || !phone) {
+    alert("Nhập đủ họ tên và SĐT");
+    return;
+  }
+
+  const detection = await faceapi
+    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+
+  if (!detection) {
+    document.getElementById("status").textContent = "❌ Không phát hiện khuôn mặt";
+    return;
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  const image = canvas.toDataURL("image/jpeg");
+
+  socket.emit("checkin", {
+    name,
+    phone,
+    image,
+    descriptor: Array.from(detection.descriptor)
+  });
+
+  document.getElementById("status").textContent = "✅ Check-in thành công";
+};
+</script>
+
+</body>
+</html>
