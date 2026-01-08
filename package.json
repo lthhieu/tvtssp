@@ -5,13 +5,19 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "nodemon --exec babel-node server.js",
+    "build-src": "babel src -d build --copy-files",
+    "build": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/node": "^7.28.0",
+    "@babel/preset-env": "^7.28.5",
     "express": "^5.2.1",
+    "nodemon": "^3.1.11",
     "socket.io": "^4.8.1",
     "xlsx": "^0.18.5"
   }

@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8" />
   <title>🍽️ Big Screen – Buffet</title>
   <script src="/socket.io/socket.io.js"></script>
 
   <style>
-    * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
     body {
       margin: 0;
@@ -27,7 +31,10 @@
       backdrop-filter: blur(6px);
     }
 
-    header h1 { font-size: 30px; margin: 0; }
+    header h1 {
+      font-size: 30px;
+      margin: 0;
+    }
 
     .count {
       display: flex;
@@ -42,7 +49,9 @@
       transition: transform 0.2s;
     }
 
-    .download:hover { transform: scale(1.2); }
+    .download:hover {
+      transform: scale(1.2);
+    }
 
     #main {
       display: grid;
@@ -59,7 +68,7 @@
       justify-content: center;
       align-items: center;
       backdrop-filter: blur(6px);
-      box-shadow: 0 0 30px rgba(0,255,0,0.3);
+      box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
     }
 
 
@@ -133,75 +142,82 @@
     }
 
     @keyframes marquee {
-      from { transform: translateX(0); }
-      to { transform: translateX(-100%); }
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-100%);
+      }
     }
   </style>
 </head>
 
 <body>
 
-<header>
-  <h1>🍽️ TRẢI NGHIỆM CÔNG NGHỆ NHẬN DIỆN KHUÔN MẶT KHI THAM DỰ BUFFET CÙNG CHÚNG TÔI!</h1>
+  <header>
+    <h1>🍽️ TRẢI NGHIỆM CÔNG NGHỆ NHẬN DIỆN KHUÔN MẶT KHI THAM DỰ BUFFET CÙNG CHÚNG TÔI!</h1>
     <div class="count">
-    Lượt Buffet: <span id="count">0</span>
-    <span class="download" title="Tải danh sách Buffet" onclick="downloadBuffet()">⬇️</span>
-  </div>
-</header>
-
-<div id="main">
-
-  <!-- LEFT -->
-  <div class="panel">
-    <div id="video-frame">
-      <video id="video-bg" autoplay loop muted playsinline>
-        <source src="/video/buffet-loop.mp4" type="video/mp4">
-      </video>
+      Lượt Buffet: <span id="count">0</span>
+      <span class="download" title="Tải danh sách Buffet" onclick="downloadBuffet()">⬇️</span>
     </div>
-  </div>
+  </header>
 
-  <!-- RIGHT -->
-  <div class="panel">
-    <div id="box">
-      <img id="photo" src="" />
-      <div id="name"></div>
-      <div id="phone"></div>
+  <div id="main">
+
+    <!-- LEFT -->
+    <div class="panel">
+      <div id="video-frame">
+        <video id="video-bg" autoplay loop muted playsinline>
+          <source src="/video/buffet-loop.mp4" type="video/mp4">
+        </video>
+      </div>
     </div>
+
+    <!-- RIGHT -->
+    <div class="panel">
+      <div id="box">
+        <img id="photo" src="" />
+        <div id="name"></div>
+        <div id="phone"></div>
+      </div>
+    </div>
+
   </div>
 
-</div>
+  <footer>
+    <span>✨ Sự hài lòng của Quý khách là vinh dự và hạnh phúc của chúng tôi! ✨ Your satisfaction is our greatest honor
+      and pleasure! ✨</span>
+  </footer>
 
-<footer>
-  <span>✨ Sự hài lòng của Quý khách là vinh dự và hạnh phúc của chúng tôi!  ✨ Your satisfaction is our greatest honor and pleasure!  ✨</span>
-</footer>
+  <script>
+    const socket = io();
+    let buffetCount = 0;
 
-<script>
-  const socket = io("https://192.168.3.109:3000");
-  let buffetCount = 0;
+    socket.on("connect", () => {
+      console.log("📺 Big Buffet connected:", socket.id);
+    });
 
-  socket.on("connect", () => {
-    console.log("📺 Big Buffet connected:", socket.id);
-  });
+    socket.on("action_screen", data => {
+      if (data.action !== "buffet") return;
 
-  socket.on("action_screen", data => {
-    if (data.action !== "buffet") return;
+      buffetCount++;
+      document.getElementById("count").textContent = buffetCount;
 
-    buffetCount++;
-    document.getElementById("count").textContent = buffetCount;
+      document.getElementById("photo").src = data.image;
+      document.getElementById("name").textContent = data.name || "Khách Buffet";
+      document.getElementById("phone").textContent = data.phone
+        ? "SĐT: ***" + data.phone.slice(-3)
+        : "";
 
-    document.getElementById("photo").src = data.image;
-    document.getElementById("name").textContent = data.name || "Khách Buffet";
-    document.getElementById("phone").textContent = data.phone
-      ? "SĐT: ***" + data.phone.slice(-3)
-      : "";
+      document.getElementById("box").classList.add("show");
+    });
 
-    document.getElementById("box").classList.add("show");
-  });
-
-  function downloadBuffet() {
-    window.open("/api/export-buffet", "_blank");
-  }
-</script>
+    function downloadBuffet() {
+      window.open("/api/export-buffet", "_blank");
+    }
+  </script>
 
 </body>
+
 </html>

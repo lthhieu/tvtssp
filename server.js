@@ -1,14 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const https = require('https');
+const http = require('http');
 const socketIO = require('socket.io');
 
 const app = express();
-const server = https.createServer({
-  key: fs.readFileSync('./cert/key.pem'),
-  cert: fs.readFileSync('./cert/cert.pem')
-}, app);
+const server = http.createServer(app);
 
 const io = socketIO(server);
 
