@@ -168,9 +168,7 @@
     <!-- LEFT -->
     <div class="panel">
       <div id="video-frame">
-        <video id="video-bg" autoplay loop muted playsinline>
-          <source src="/video/buffet-loop.mp4" type="video/mp4">
-        </video>
+        <video id="video-bg1" autoplay muted playsinline></video>
       </div>
     </div>
 
@@ -193,6 +191,22 @@
   <script>
     const socket = io();
     let buffetCount = 0;
+
+    const video = document.getElementById("video-bg1");
+    const playlist = [
+      "/video/buffet1-loop.mp4",
+      "/video/buffet2-loop.mp4"
+    ];
+    let index = 0;
+
+    function playNext() {
+      video.src = playlist[index];
+      video.play();
+      index = (index + 1) % playlist.length;
+    }
+
+    video.addEventListener("ended", playNext);
+    playNext();
 
     socket.on("connect", () => {
       console.log("📺 Big Buffet connected:", socket.id);
