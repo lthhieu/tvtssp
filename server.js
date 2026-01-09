@@ -12,7 +12,9 @@ const io = socketIO(server);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== STATE =====
+// ===== STATE + FILE LƯU =====
+const STATE_FILE = path.join(__dirname, 'state.json'); // File lưu state
+
 let totalCheckins = 0;
 let last3 = [];
 let allCheckins = [];
@@ -21,6 +23,50 @@ let buffetLogs = [];
 let gymLogs = [];
 let spaLogs = [];
 let zooLogs = [];
+
+// Đọc state từ file khi server start
+function loadState() {
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      const data = fs.readFileSync(STATE_FILE, 'utf8');
+      const state = JSON.parse(data);
+      totalCheckins = state.totalCheckins || 0;
+      last3 = state.last3 || [];
+      allCheckins = state.allCheckins || [];
+      buffetLogs = state.buffetLogs || [];
+      gymLogs = state.gymLogs || [];
+      spaLogs = state.spaLogs || [];
+      zooLogs = state.zooLogs || [];
+      console.log('✅ Loaded state from file:', { totalCheckins, logsCount: allCheckins.length });
+    } catch (err) {
+      console.error('Lỗi load state.json:', err);
+    }
+  } else {
+    console.log('state.json not found, starting fresh');
+  }
+}
+
+// Ghi state vào file
+function saveState() {
+  const state = {
+    totalCheckins,
+    last3,
+    allCheckins,
+    buffetLogs,
+    gymLogs,
+    spaLogs,
+    zooLogs
+  };
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    console.log('State saved to state.json');
+  } catch (err) {
+    console.error('Lỗi save state.json:', err);
+  }
+}
+
+// Load state khi server start
+loadState();
 
 // ===== SOCKET =====
 io.on('connection', socket => {
@@ -46,6 +92,8 @@ io.on('connection', socket => {
       total: totalCheckins,
       last3
     });
+
+    saveState(); // Lưu ngay sau check-in
   });
 
   socket.on("action_try", data => {
@@ -87,6 +135,8 @@ io.on('connection', socket => {
       emitAction("zoo", last);
       console.log("📺 Zoo logged:", entry.name);
     }
+
+    saveState(); // Lưu ngay sau action
   });
 
   socket.on('disconnect', () => {
@@ -137,7 +187,7 @@ function exportCsv(res, list, filename) {
   const header = 'STT;Tên;SĐT;Thời gian\n';
 
   const rows = list.map((c, i) =>
-    `${i + 1};"${c.name}";"${c.phone}";"${new Date(c.time).toLocaleString()}"`
+    `${i + 1};"${c.name.replace(/"/g, '""')}";"${c.phone.replace(/"/g, '""')}";"${new Date(c.time).toLocaleString()}"`
   ).join('\n');
 
   const csv = header + rows;
@@ -150,5 +200,5 @@ function exportCsv(res, list, filename) {
 // ===== START =====
 const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`✅ HTTPS TVTS server running at https://<IP-PC>:${PORT}`);
+  console.log(`✅ HTTP TVTS server running at http://<IP-PC>:${PORT}`);
 });
