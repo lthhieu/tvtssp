@@ -6,145 +6,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/face-api.min.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #000;
-      color: #fff;
-      text-align: center;
-    }
-
-    h1 {
-      margin: 10px 0;
-      font-size: 22px;
-    }
-
-    select, button {
-      padding: 10px;
-      margin: 6px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-    }
-
-    button {
-      background: #0a7;
-      color: #fff;
-    }
-
-    button:disabled {
-      background: #555;
-    }
-
-    #videoBox {
-      position: relative;
-      margin: 10px auto;
-      width: 90%;
-      max-width: 360px;
-      border: 4px solid #0f0;
-      border-radius: 16px;
-      box-shadow: 0 0 20px #0f0;
-    }
-
-    video, canvas {
-      width: 100%;
-      border-radius: 12px;
-    }
-
-    #status {
-      margin-top: 8px;
-      font-size: 14px;
-      color: #0f0;
-    }
+    body { margin:0;font-family:Arial;background:#000;color:#fff;text-align:center;}
+    h1{margin:10px 0;font-size:22px;}
+    select,button{padding:10px;margin:6px;font-size:16px;border-radius:8px;border:none;}
+    button{background:#0a7;color:#fff;}
+    #videoBox{margin:10px auto;width:90%;max-width:360px;border:4px solid #0f0;border-radius:16px;box-shadow:0 0 20px #0f0;}
+    video,canvas{width:100%;border-radius:12px;}
+    #status{margin-top:8px;font-size:14px;color:#0f0;}
   </style>
 </head>
 
 <body>
+<h1>🍽️ BUFFET EXPERIENCE</h1>
 
-  <h1>🍽️ BUFFET EXPERIENCE</h1>
+<select id="cameraSelect"></select><br>
+<button id="startCamBtn">🎥 Bật camera</button>
 
-  <div>
-    <select id="cameraSelect"></select><br />
-    <button id="startCamBtn">🎥 Bật camera</button>
-  </div>
+<div id="videoBox">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+</div>
 
-  <div id="videoBox">
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-  </div>
+<button id="confirmBtn" disabled>✅ Xác nhận</button>
+<div id="status">Chưa bật camera</div>
 
-  <button id="confirmBtn" disabled>✅ Xác nhận</button>
+<script>
+const socket = io();
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const cameraSelect = document.getElementById("cameraSelect");
+const statusText = document.getElementById("status");
 
-  <div id="status">Chưa bật camera</div>
+let currentStream = null;
 
-  <script>
-    const socket = io();
+async function loadModels(){
+  await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+}
+loadModels();
 
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+async function loadCameras(){
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cams = devices.filter(d=>d.kind==="videoinput");
+  cameraSelect.innerHTML="";
+  cams.forEach((c,i)=>{
+    const o=document.createElement("option");
+    o.value=c.deviceId; o.text=c.label||`Camera ${i+1}`;
+    cameraSelect.appendChild(o);
+  });
+}
 
-    const cameraSelect = document.getElementById("cameraSelect");
-    const startCamBtn = document.getElementById("startCamBtn");
-    const confirmBtn = document.getElementById("confirmBtn");
-    const statusText = document.getElementById("status");
+document.getElementById("startCamBtn").onclick = async ()=>{
+  if(currentStream) currentStream.getTracks().forEach(t=>t.stop());
+  const id = cameraSelect.value;
+  currentStream = await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}}});
+  video.srcObject = currentStream;
+  document.getElementById("confirmBtn").disabled=false;
+  statusText.textContent="📸 Giữ mặt trong khung 1 giây rồi bấm Xác nhận";
+};
 
-    let currentStream = null;
+document.getElementById("confirmBtn").onclick = async ()=>{
+  statusText.textContent="⏳ Đang nhận diện...";
 
-    async function loadCameras() {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const cams = devices.filter(d => d.kind === "videoinput");
+  let bestDet = null;
+  for(let i=0;i<3;i++){
+    const d = await faceapi
+      .detectSingleFace(video,new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+    if(d) bestDet = d;
+  }
 
-      cameraSelect.innerHTML = "";
-      cams.forEach((cam, i) => {
-        const option = document.createElement("option");
-        option.value = cam.deviceId;
-        option.text = cam.label || `Camera ${i + 1}`;
-        cameraSelect.appendChild(option);
-      });
-    }
+  if(!bestDet){
+    statusText.textContent="❌ Không phát hiện khuôn mặt";
+    return;
+  }
 
-    startCamBtn.onclick = async () => {
-      if (currentStream) {
-        currentStream.getTracks().forEach(t => t.stop());
-      }
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  ctx.drawImage(video,0,0);
 
-      const deviceId = cameraSelect.value;
+  socket.emit("action_try",{
+    action:"buffet",
+    image: canvas.toDataURL("image/jpeg"),
+    descriptor: Array.from(bestDet.descriptor)
+  });
 
-      currentStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } }
-      });
+  console.log("🍽️ Buffet sent with descriptor");
+};
 
-      video.srcObject = currentStream;
-      confirmBtn.disabled = false;
-      statusText.textContent = "📸 Đưa khuôn mặt vào khung và xác nhận";
-    };
+socket.on("action_result", res=>{
+  if(res.ok){
+    statusText.textContent="✅ Xác nhận thành công";
+  }else{
+    statusText.textContent="❌ " + res.reason;
+  }
+});
 
-    confirmBtn.onclick = () => {
-      statusText.textContent = "⏳ Đang nhận diện...";
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      const image = canvas.toDataURL("image/jpeg");
-
-      socket.emit("action_try", {
-        action: "buffet",
-        image: image
-      });
-
-      console.log("🍽️ Sent action_try buffet");
-    };
-
-    loadCameras();
-
-    socket.on("connect", () => {
-      console.log("📡 Buffet connected:", socket.id);
-    });
-  </script>
-
+loadCameras();
+</script>
 </body>
 </html>

@@ -1,142 +1,116 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const http = require('http');
+const https = require('https');
 const socketIO = require('socket.io');
 
 const app = express();
-const server = http.createServer(app);
+const server = https.createServer({
+  key: fs.readFileSync('./cert/key.pem'),
+  cert: fs.readFileSync('./cert/cert.pem')
+}, app);
 
 const io = socketIO(server);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== STATE + FILE LƯU =====
-const STATE_FILE = path.join(__dirname, 'state.json'); // File lưu state
-
+// ===== STATE =====
 let totalCheckins = 0;
 let last3 = [];
-let allCheckins = [];
+let allCheckins = []; // {name, phone, image, descriptor, time, buffet,gym,spa,zoo}
 
 let buffetLogs = [];
 let gymLogs = [];
 let spaLogs = [];
 let zooLogs = [];
 
-// Đọc state từ file khi server start
-function loadState() {
-  if (fs.existsSync(STATE_FILE)) {
-    try {
-      const data = fs.readFileSync(STATE_FILE, 'utf8');
-      const state = JSON.parse(data);
-      totalCheckins = state.totalCheckins || 0;
-      last3 = state.last3 || [];
-      allCheckins = state.allCheckins || [];
-      buffetLogs = state.buffetLogs || [];
-      gymLogs = state.gymLogs || [];
-      spaLogs = state.spaLogs || [];
-      zooLogs = state.zooLogs || [];
-      console.log('✅ Loaded state from file:', { totalCheckins, logsCount: allCheckins.length });
-    } catch (err) {
-      console.error('Lỗi load state.json:', err);
-    }
-  } else {
-    console.log('state.json not found, starting fresh');
+// ===== UTILS =====
+function faceDistance(a,b){
+  let sum=0;
+  for(let i=0;i<a.length;i++){
+    const d=a[i]-b[i];
+    sum+=d*d;
   }
+  return Math.sqrt(sum);
 }
 
-// Ghi state vào file
-function saveState() {
-  const state = {
-    totalCheckins,
-    last3,
-    allCheckins,
-    buffetLogs,
-    gymLogs,
-    spaLogs,
-    zooLogs
-  };
-  try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-    console.log('State saved to state.json');
-  } catch (err) {
-    console.error('Lỗi save state.json:', err);
-  }
-}
-
-// Load state khi server start
-loadState();
+const THRESHOLD = 0.68;
 
 // ===== SOCKET =====
 io.on('connection', socket => {
   console.log('🖥️ Client connected:', socket.id);
 
   socket.on('checkin', data => {
-    console.log('📸 Check-in received:', data.name);
-
-    totalCheckins++;
+    if(!data.descriptor || !data.image){
+      console.log("⚠️ Invalid checkin ignored");
+      return;
+    }
 
     const entry = {
       name: data.name,
       phone: data.phone,
       image: data.image,
-      time: Date.now()
+      descriptor: data.descriptor,
+      time: Date.now(),
+      buffet:false,
+      gym:false,
+      spa:false,
+      zoo:false
     };
 
-    last3.unshift(entry);
-    last3 = last3.slice(0, 3);
     allCheckins.push(entry);
+    totalCheckins++;
+
+    last3.unshift(entry);
+    last3 = last3.slice(0,3);
 
     io.emit('dashboard-update', {
       total: totalCheckins,
       last3
     });
 
-    saveState(); // Lưu ngay sau check-in
+    console.log("📸 Checkin OK:", entry.name);
   });
 
   socket.on("action_try", data => {
-    console.log("🎯 Action try:", data.action);
-
-    const last = allCheckins[allCheckins.length - 1];
-
-    if (!last) {
-      console.log("⚠️ No checkin data available");
+    if(!data.descriptor){
+      socket.emit("action_result",{ok:false,reason:"NO_FACE"});
       return;
     }
 
-    const entry = {
-      name: last.name,
-      phone: last.phone,
+    const action = data.action;
+    const flag = action;
+
+    const match = allCheckins.find(c => !c[flag] && faceDistance(c.descriptor, data.descriptor) < THRESHOLD);
+
+    if(!match){
+      socket.emit("action_result",{ok:false,reason:"NO_MATCH"});
+      return;
+    }
+
+    match[flag] = true;
+
+    const logEntry = {
+      name: match.name,
+      phone: match.phone,
       time: Date.now()
     };
 
-    if (data.action === "buffet") {
-      buffetLogs.push(entry);
-      emitAction("buffet", last);
-      console.log("📺 Buffet logged:", entry.name);
-    }
+    if(action==="buffet") buffetLogs.push(logEntry);
+    if(action==="gym") gymLogs.push(logEntry);
+    if(action==="spa") spaLogs.push(logEntry);
+    if(action==="zoo") zooLogs.push(logEntry);
 
-    if (data.action === "gym") {
-      gymLogs.push(entry);
-      emitAction("gym", last);
-      console.log("📺 Gym logged:", entry.name);
-    }
+    io.emit("action_screen", {
+      action,
+      image: match.image,
+      name: match.name,
+      phone: match.phone
+    });
 
-    if (data.action === "spa") {
-      spaLogs.push(entry);
-      emitAction("spa", last);
-      console.log("📺 Spa logged:", entry.name);
-    }
-
-    if (data.action === "zoo") {
-      zooLogs.push(entry);
-      emitAction("zoo", last);
-      console.log("📺 Zoo logged:", entry.name);
-    }
-
-    saveState(); // Lưu ngay sau action
+    socket.emit("action_result",{ok:true});
+    console.log(`📺 ${action} OK:`, match.name);
   });
 
   socket.on('disconnect', () => {
@@ -144,40 +118,23 @@ io.on('connection', socket => {
   });
 });
 
-// ===== HELPER =====
-function emitAction(action, last) {
-  io.emit("action_screen", {
-    action,
-    image: last.image,
-    name: last.name,
-    phone: last.phone
-  });
-}
-
 // ===== API =====
 app.get('/api/dashboard-state', (req, res) => {
-  res.json({
-    total: totalCheckins,
-    last3
-  });
+  res.json({ total: totalCheckins, last3 });
 });
 
 app.get('/api/export-excel', (req, res) => {
   exportCsv(res, allCheckins, "checkin.csv");
 });
-
 app.get('/api/export-buffet', (req, res) => {
   exportCsv(res, buffetLogs, "buffet.csv");
 });
-
 app.get('/api/export-gym', (req, res) => {
   exportCsv(res, gymLogs, "gym.csv");
 });
-
 app.get('/api/export-spa', (req, res) => {
   exportCsv(res, spaLogs, "spa.csv");
 });
-
 app.get('/api/export-zoo', (req, res) => {
   exportCsv(res, zooLogs, "zoo.csv");
 });
@@ -185,20 +142,16 @@ app.get('/api/export-zoo', (req, res) => {
 // ===== CSV EXPORT =====
 function exportCsv(res, list, filename) {
   const header = 'STT;Tên;SĐT;Thời gian\n';
-
   const rows = list.map((c, i) =>
-    `${i + 1};"${c.name.replace(/"/g, '""')}";"${c.phone.replace(/"/g, '""')}";"${new Date(c.time).toLocaleString()}"`
+    `${i + 1};"${c.name}";"${c.phone}";"${new Date(c.time).toLocaleString()}"`
   ).join('\n');
-
-  const csv = header + rows;
-
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send('\ufeff' + csv);
+  res.send('\ufeff' + header + rows);
 }
 
 // ===== START =====
 const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`✅ HTTP TVTS server running at http://<IP-PC>:${PORT}`);
+  console.log(`✅ HTTPS TVTS server running at https://<IP-PC>:${PORT}`);
 });
