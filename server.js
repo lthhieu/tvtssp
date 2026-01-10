@@ -1,14 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const https = require('https');
+const http = require('http');
 const socketIO = require('socket.io');
 
 const app = express();
-const server = https.createServer({
-  key: fs.readFileSync('./cert/key.pem'),
-  cert: fs.readFileSync('./cert/cert.pem')
-}, app);
+const server = http.createServer(app);
 
 const io = socketIO(server);
 
@@ -26,11 +23,11 @@ let spaLogs = [];
 let zooLogs = [];
 
 // ===== UTILS =====
-function faceDistance(a,b){
-  let sum=0;
-  for(let i=0;i<a.length;i++){
-    const d=a[i]-b[i];
-    sum+=d*d;
+function faceDistance(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const d = a[i] - b[i];
+    sum += d * d;
   }
   return Math.sqrt(sum);
 }
@@ -42,7 +39,7 @@ io.on('connection', socket => {
   console.log('🖥️ Client connected:', socket.id);
 
   socket.on('checkin', data => {
-    if(!data.descriptor || !data.image){
+    if (!data.descriptor || !data.image) {
       console.log("⚠️ Invalid checkin ignored");
       return;
     }
@@ -53,17 +50,17 @@ io.on('connection', socket => {
       image: data.image,
       descriptor: data.descriptor,
       time: Date.now(),
-      buffet:false,
-      gym:false,
-      spa:false,
-      zoo:false
+      buffet: false,
+      gym: false,
+      spa: false,
+      zoo: false
     };
 
     allCheckins.push(entry);
     totalCheckins++;
 
     last3.unshift(entry);
-    last3 = last3.slice(0,3);
+    last3 = last3.slice(0, 3);
 
     io.emit('dashboard-update', {
       total: totalCheckins,
@@ -74,8 +71,8 @@ io.on('connection', socket => {
   });
 
   socket.on("action_try", data => {
-    if(!data.descriptor){
-      socket.emit("action_result",{ok:false,reason:"NO_FACE"});
+    if (!data.descriptor) {
+      socket.emit("action_result", { ok: false, reason: "NO_FACE" });
       return;
     }
 
@@ -84,8 +81,8 @@ io.on('connection', socket => {
 
     const match = allCheckins.find(c => !c[flag] && faceDistance(c.descriptor, data.descriptor) < THRESHOLD);
 
-    if(!match){
-      socket.emit("action_result",{ok:false,reason:"NO_MATCH"});
+    if (!match) {
+      socket.emit("action_result", { ok: false, reason: "NO_MATCH" });
       return;
     }
 
@@ -97,10 +94,10 @@ io.on('connection', socket => {
       time: Date.now()
     };
 
-    if(action==="buffet") buffetLogs.push(logEntry);
-    if(action==="gym") gymLogs.push(logEntry);
-    if(action==="spa") spaLogs.push(logEntry);
-    if(action==="zoo") zooLogs.push(logEntry);
+    if (action === "buffet") buffetLogs.push(logEntry);
+    if (action === "gym") gymLogs.push(logEntry);
+    if (action === "spa") spaLogs.push(logEntry);
+    if (action === "zoo") zooLogs.push(logEntry);
 
     io.emit("action_screen", {
       action,
@@ -109,7 +106,7 @@ io.on('connection', socket => {
       phone: match.phone
     });
 
-    socket.emit("action_result",{ok:true});
+    socket.emit("action_result", { ok: true });
     console.log(`📺 ${action} OK:`, match.name);
   });
 
